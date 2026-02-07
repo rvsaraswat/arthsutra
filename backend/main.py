@@ -16,6 +16,10 @@ from ingestion.routes import router as ingestion_router
 from models import create_tables, get_session
 from models import User, Transaction, Category, Budget, Goal, Asset, AuditLog, FinancialSnapshot, Account, ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, TransactionAudit
 from services.currency import currency_service
+from analytics.forecasting import forecast_expenses as forecast_expenses_fn
+from analytics.forecasting import forecast_savings as forecast_savings_fn
+from analytics.forecasting import RetirementSimulator
+from analytics.cashflow import CashFlowAnalyzer
 from schemas import (
     TransactionCreate,
     TransactionOut,
@@ -114,13 +118,62 @@ async def api_status():
 
 # Authentication endpoints (placeholder)
 @app.post(f"{settings.API_V1_PREFIX}/auth/register")
-async def register_user():
+async def register_user(
+    username: str,
+    email: str,
+    password: str,
+    full_name: Optional[str] = None,
+    session=Depends(get_session)
+):
     """Register a new user."""
-    # TODO: Implement user registration
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User registration not yet implemented"
-    )
+    try:
+        # Check if user already exists
+        existing_user = session.query(User).filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username or email already exists"
+            )
+        
+        # For local-first application, we'll use simple password storage
+        # In production, use proper password hashing (bcrypt, argon2, etc.)
+        import hashlib
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # Create new user
+        new_user = User(
+            username=username,
+            email=email,
+            password_hash=password_hash,
+            full_name=full_name or username,
+            preferred_currency="INR"
+        )
+        
+        session.add(new_user)
+        session.commit()
+        session.refresh(new_user)
+        
+        logger.info(f"User registered: {username}")
+        
+        return {
+            "user_id": new_user.id,
+            "username": new_user.username,
+            "email": new_user.email,
+            "full_name": new_user.full_name,
+            "message": "User registered successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error registering user: {e}")
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error registering user: {str(e)}"
+        )
 
 
 # ─── Currency endpoints ───
@@ -208,13 +261,60 @@ async def update_user_preferences(
 
 
 @app.post(f"{settings.API_V1_PREFIX}/auth/login")
-async def login_user():
+async def login_user(
+    username: str,
+    password: str,
+    session=Depends(get_session)
+):
     """User login."""
-    # TODO: Implement user login
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User login not yet implemented"
-    )
+    try:
+        # Find user by username or email
+        user = session.query(User).filter(
+            (User.username == username) | (User.email == username)
+        ).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password"
+            )
+        
+        # Verify password (using simple hash for local-first app)
+        import hashlib
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        if user.password_hash != password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password"
+            )
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+        
+        logger.info(f"User logged in: {username}")
+        
+        # For local-first application, return user info
+        # In production, generate and return JWT token
+        return {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "preferred_currency": user.preferred_currency,
+            "message": "Login successful"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during login: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during login: {str(e)}"
+        )
 
 
 # ─── Account endpoints ───
@@ -1034,30 +1134,137 @@ async def export_transactions(
 
 @app.get(f"{settings.API_V1_PREFIX}/analytics/networth")
 async def get_networth(
-    user_id: int,
+    user_id: int = 1,
     date: Optional[str] = None,
     session=Depends(get_session)
 ):
     """Get net-worth calculation."""
-    # TODO: Implement net-worth calculation
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Net-worth calculation not yet implemented"
-    )
+    try:
+        # Get all assets for the user
+        assets = session.query(Asset).filter(Asset.user_id == user_id).all()
+        
+        # Get all accounts for the user
+        accounts = session.query(Account).filter(
+            Account.user_id == user_id,
+            Account.is_active == True
+        ).all()
+        
+        # Calculate total assets value
+        total_assets = sum(asset.current_value for asset in assets)
+        
+        # Add account balances to total assets
+        total_account_balance = sum(account.balance for account in accounts)
+        total_assets += total_account_balance
+        
+        # Get all transactions to calculate net position
+        transactions = session.query(Transaction).filter(
+            Transaction.user_id == user_id,
+            (Transaction.is_deleted == False) | (Transaction.is_deleted == None)
+        ).all()
+        
+        # Calculate net income/expenses
+        total_income = sum(t.amount for t in transactions if t.transaction_type == 'income')
+        total_expenses = sum(t.amount for t in transactions if t.transaction_type == 'expense')
+        net_cashflow = total_income - total_expenses
+        
+        # Calculate net worth
+        net_worth = total_assets + net_cashflow
+        
+        return {
+            "user_id": user_id,
+            "date": date or datetime.now().isoformat(),
+            "net_worth": round(net_worth, 2),
+            "total_assets": round(total_assets, 2),
+            "total_account_balance": round(total_account_balance, 2),
+            "net_cashflow": round(net_cashflow, 2),
+            "asset_count": len(assets),
+            "account_count": len(accounts)
+        }
+    except Exception as e:
+        logger.error(f"Error calculating net-worth: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error calculating net-worth: {str(e)}"
+        )
 
 
 @app.get(f"{settings.API_V1_PREFIX}/analytics/budget")
 async def get_budget_analysis(
-    user_id: int,
+    user_id: int = 1,
     period: str = "monthly",
     session=Depends(get_session)
 ):
     """Get budget utilization analysis."""
-    # TODO: Implement budget analysis
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Budget analysis not yet implemented"
-    )
+    try:
+        # Get all budgets for the user
+        budgets = session.query(Budget).filter(
+            Budget.user_id == user_id,
+            Budget.is_active == True
+        ).all()
+        
+        if not budgets:
+            return {
+                "user_id": user_id,
+                "period": period,
+                "budgets": [],
+                "total_budget": 0,
+                "total_spent": 0,
+                "total_remaining": 0,
+                "utilization_rate": 0
+            }
+        
+        # Calculate budget utilization
+        budget_analysis = []
+        total_budget_amount = 0
+        total_spent_amount = 0
+        
+        for budget in budgets:
+            # Get transactions for this budget's category
+            transactions = session.query(Transaction).filter(
+                Transaction.user_id == user_id,
+                Transaction.category_id == budget.category_id,
+                Transaction.transaction_type == 'expense',
+                (Transaction.is_deleted == False) | (Transaction.is_deleted == None)
+            ).all()
+            
+            spent = sum(t.amount for t in transactions)
+            remaining = budget.amount - spent
+            utilization = (spent / budget.amount * 100) if budget.amount > 0 else 0
+            
+            category = session.query(Category).filter(Category.id == budget.category_id).first()
+            category_name = category.name if category else "Unknown"
+            
+            budget_analysis.append({
+                "budget_id": budget.id,
+                "category": category_name,
+                "budget_amount": round(budget.amount, 2),
+                "spent": round(spent, 2),
+                "remaining": round(remaining, 2),
+                "utilization_rate": round(utilization, 2),
+                "status": "exceeded" if spent > budget.amount else "on_track" if utilization > 80 else "healthy"
+            })
+            
+            total_budget_amount += budget.amount
+            total_spent_amount += spent
+        
+        total_remaining = total_budget_amount - total_spent_amount
+        overall_utilization = (total_spent_amount / total_budget_amount * 100) if total_budget_amount > 0 else 0
+        
+        return {
+            "user_id": user_id,
+            "period": period,
+            "budgets": budget_analysis,
+            "total_budget": round(total_budget_amount, 2),
+            "total_spent": round(total_spent_amount, 2),
+            "total_remaining": round(total_remaining, 2),
+            "utilization_rate": round(overall_utilization, 2)
+        }
+    except Exception as e:
+        logger.error(f"Error analyzing budget: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error analyzing budget: {str(e)}"
+        )
 
 
 @app.get(f"{settings.API_V1_PREFIX}/analytics/summary")
@@ -1112,49 +1319,113 @@ async def get_analytics_summary(
 
 # Forecasting endpoints
 @app.get(f"{settings.API_V1_PREFIX}/forecasting/expenses")
-async def forecast_expenses(
-    user_id: int,
+async def forecast_expenses_endpoint(
+    user_id: int = 1,
     horizon_days: int = 30,
     session=Depends(get_session)
 ):
     """Get expense forecasting."""
-    # TODO: Implement expense forecasting
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Expense forecasting not yet implemented"
-    )
+    try:
+        # Call the forecasting function from analytics module
+        forecast_result = forecast_expenses_fn(
+            user_id=user_id,
+            horizon_days=horizon_days,
+            session=session
+        )
+        
+        # Check if there was an error
+        if isinstance(forecast_result, dict) and 'error' in forecast_result:
+            return {
+                "user_id": user_id,
+                "horizon_days": horizon_days,
+                "forecast": [],
+                "message": forecast_result.get('error', 'Unable to generate forecast')
+            }
+        
+        return {
+            "user_id": user_id,
+            "horizon_days": horizon_days,
+            **forecast_result
+        }
+    except Exception as e:
+        logger.error(f"Error forecasting expenses: {e}")
+        # Return a graceful fallback instead of raising an error
+        return {
+            "user_id": user_id,
+            "horizon_days": horizon_days,
+            "forecast": [],
+            "message": f"Unable to generate forecast: {str(e)}"
+        }
 
 
 @app.get(f"{settings.API_V1_PREFIX}/forecasting/savings")
-async def forecast_savings(
-    user_id: int,
+async def forecast_savings_endpoint(
+    user_id: int = 1,
     horizon_days: int = 30,
     session=Depends(get_session)
 ):
     """Get savings trajectory forecasting."""
-    # TODO: Implement savings forecasting
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Savings forecasting not yet implemented"
-    )
+    try:
+        # Call the forecasting function from analytics module
+        forecast_result = forecast_savings_fn(
+            user_id=user_id,
+            horizon_days=horizon_days,
+            session=session
+        )
+        
+        return {
+            "user_id": user_id,
+            "horizon_days": horizon_days,
+            **forecast_result
+        }
+    except Exception as e:
+        logger.error(f"Error forecasting savings: {e}")
+        # Return a graceful fallback instead of raising an error
+        return {
+            "user_id": user_id,
+            "horizon_days": horizon_days,
+            "monthly_savings": 0,
+            "forecast": [],
+            "message": f"Unable to generate forecast: {str(e)}"
+        }
 
 
 @app.get(f"{settings.API_V1_PREFIX}/forecasting/retirement")
-async def retirement_simulator(
-    user_id: int,
-    current_age: int,
-    retirement_age: int,
-    monthly_contribution: float,
+async def retirement_simulator_endpoint(
+    user_id: int = 1,
+    current_age: int = 30,
+    retirement_age: int = 60,
+    monthly_contribution: float = 10000,
+    current_savings: float = 0,
     expected_return: float = 0.08,
     inflation_rate: float = 0.06,
     session=Depends(get_session)
 ):
     """Run retirement corpus simulator."""
-    # TODO: Implement retirement simulator
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Retirement simulator not yet implemented"
-    )
+    try:
+        # Create retirement simulator instance
+        simulator = RetirementSimulator()
+        
+        # Run simulation
+        simulation_result = simulator.simulate(
+            current_age=current_age,
+            retirement_age=retirement_age,
+            monthly_contribution=monthly_contribution,
+            current_savings=current_savings,
+            expected_return=expected_return,
+            inflation_rate=inflation_rate
+        )
+        
+        return {
+            "user_id": user_id,
+            **simulation_result
+        }
+    except Exception as e:
+        logger.error(f"Error running retirement simulation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error running retirement simulation: {str(e)}"
+        )
 
 
 # AI / Chat endpoints
