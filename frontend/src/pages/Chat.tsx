@@ -50,6 +50,10 @@ export default function Chat() {
         body: JSON.stringify({ user_id: 1, message: input })
       })
 
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`)
+      }
+
       const data = await response.json()
 
       const assistantMessage: Message = {
@@ -179,7 +183,7 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Ask about your finances, request insights, or get advice..."
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:bg-white/8 transition-all"
             disabled={loading}

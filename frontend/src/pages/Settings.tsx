@@ -1,240 +1,195 @@
-import { useState } from 'react'
-import { User, Bell, Shield, Database, Layout, Globe, Key, Smartphone, HardDrive, Download, Sliders } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { User, Shield, Download, Trash2, Check, AlertTriangle, Globe } from 'lucide-react'
+import { useCurrency } from '../contexts/CurrencyContext'
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('profile')
-  const [settings, setSettings] = useState({
-    currency: 'INR',
-    language: 'en',
-    notifications: true,
-    darkMode: true,
-    autoBackup: true,
-  })
+  const { currency, setCurrency, currencyList } = useCurrency()
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [profile, setProfile] = useState({ name: '', email: '' })
+  const [exporting, setExporting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const handleChange = (key: string, value: any) => {
-    setSettings({ ...settings, [key]: value })
+  useEffect(() => {
+    // Load profile from localStorage or defaults
+    setProfile({
+      name: localStorage.getItem('user_name') || 'User',
+      email: localStorage.getItem('user_email') || '',
+    })
+  }, [])
+
+  useEffect(() => {
+    if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t) }
+  }, [toast])
+
+  const handleSaveProfile = () => {
+    localStorage.setItem('user_name', profile.name)
+    localStorage.setItem('user_email', profile.email)
+    setToast({ message: 'Profile saved', type: 'success' })
   }
 
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'preferences', label: 'Preferences', icon: Sliders },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'data', label: 'Data & Privacy', icon: Database },
-  ]
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/v1/transactions/export?user_id=1')
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `arthsutra_export_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setToast({ message: 'Transactions exported successfully', type: 'success' })
+    } catch (err) {
+      setToast({ message: 'Failed to export data', type: 'error' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleDeleteAllData = async () => {
+    // This is a destructive operation — in production would call a backend endpoint
+    setShowDeleteConfirm(false)
+    setToast({ message: 'Data deletion is not available in this version', type: 'error' })
+  }
 
   return (
-    <div className="flex h-full gap-6 animate-fade-in">
-      {/* Sidebar Tabs */}
-      <div className="w-64 flex-shrink-0">
-        <h2 className="text-2xl font-bold text-white mb-6 px-2">Settings</h2>
-        <div className="flex flex-col gap-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
-                  activeTab === tab.id
-                    ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Icon size={18} />
-                {tab.label}
-              </button>
-            )
-          })}
+    <div className="h-full flex flex-col gap-6 animate-fade-in max-w-3xl">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-2 animate-fade-in ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.type === 'success' ? <Check size={16} /> : <AlertTriangle size={16} />}
+          {toast.message}
+        </div>
+      )}
+
+      <div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
+        <p className="text-gray-400 text-sm">Manage your preferences</p>
+      </div>
+
+      {/* Profile Section */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-violet-500/10"><User size={20} className="text-violet-400" /></div>
+          <h2 className="text-lg font-semibold text-white">Profile</h2>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">Full Name</label>
+            <input
+              type="text"
+              value={profile.name}
+              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+              className="input w-full"
+              placeholder="Your name"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">Email</label>
+            <input
+              type="email"
+              value={profile.email}
+              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+              className="input w-full"
+              placeholder="your@email.com"
+            />
+          </div>
+          <button
+            onClick={handleSaveProfile}
+            className="px-6 py-2.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors font-medium text-sm"
+          >
+            Save Changes
+          </button>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 max-w-3xl overflow-y-auto pr-4 scrollbar-thin">
-        {activeTab === 'profile' && (
-          <div className="card space-y-6">
-            <div className="flex items-center gap-4 border-b border-white/5 pb-6">
-              <div className="w-16 h-16 rounded-full bg-violet-600 flex items-center justify-center text-2xl font-bold text-white">
-                JD
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-white">John Doe</h3>
-                <p className="text-gray-400 text-sm">Premium Member</p>
-              </div>
-              <button className="ml-auto btn btn-secondary text-xs py-2 px-4">Change Avatar</button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Full Name</label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  defaultValue="John Doe"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Email Address</label>
-                <input
-                  type="email"
-                  className="input w-full"
-                  defaultValue="john@example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Phone Number</label>
-                <input
-                  type="tel"
-                  className="input w-full"
-                  defaultValue="+91 98765 43210"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Location</label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  defaultValue="Mumbai, India"
-                />
-              </div>
-            </div>
-            
-            <div className="pt-4 border-t border-white/5 flex justify-end">
-              <button className="btn btn-primary">Save Changes</button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'preferences' && (
-          <div className="card space-y-6">
-            <h3 className="text-xl font-semibold text-white mb-4">App Preferences</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-3">
-                  <Globe className="text-gray-400" size={20} />
-                  <div>
-                    <p className="text-white font-medium">Currency</p>
-                    <p className="text-xs text-gray-400">Default currency for transactions</p>
-                  </div>
-                </div>
-                <select
-                  className="input py-1 px-3 bg-black/20 border-white/10"
-                  value={settings.currency}
-                  onChange={(e) => handleChange('currency', e.target.value)}
-                >
-                  <option value="INR">INR (₹)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-3">
-                  <Layout className="text-gray-400" size={20} />
-                  <div>
-                    <p className="text-white font-medium">Language</p>
-                    <p className="text-xs text-gray-400">Interface language</p>
-                  </div>
-                </div>
-                <select
-                  className="input py-1 px-3 bg-black/20 border-white/10"
-                  value={settings.language}
-                  onChange={(e) => handleChange('language', e.target.value)}
-                >
-                  <option value="en">English</option>
-                  <option value="hi">Hindi</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-3">
-                  <Bell className="text-gray-400" size={20} />
-                  <div>
-                    <p className="text-white font-medium">Notifications</p>
-                    <p className="text-xs text-gray-400">Enable push notifications</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications}
-                    onChange={(e) => handleChange('notifications', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'security' && (
-          <div className="card space-y-6">
-            <h3 className="text-xl font-semibold text-white mb-4">Security</h3>
-            
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition">
-                <div className="flex items-center gap-3 mb-2">
-                  <Key className="text-violet-400" size={20} />
-                  <p className="text-white font-medium">Change Password</p>
-                </div>
-                <p className="text-xs text-gray-400 ml-8">Update your password regularly to keep your account secure</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition">
-                <div className="flex items-center gap-3 mb-2">
-                  <Smartphone className="text-violet-400" size={20} />
-                  <p className="text-white font-medium">Two-Factor Authentication</p>
-                </div>
-                <p className="text-xs text-gray-400 ml-8">Add an extra layer of security to your account</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'data' && (
-          <div className="card space-y-6">
-            <h3 className="text-xl font-semibold text-white mb-4">Data Management</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-3">
-                  <HardDrive className="text-gray-400" size={20} />
-                  <div>
-                    <p className="text-white font-medium">Auto Backup</p>
-                    <p className="text-xs text-gray-400">Automatically backup your data every day</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.autoBackup}
-                    onChange={(e) => handleChange('autoBackup', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
-                </label>
-              </div>
-
-              <button className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition text-left group">
-                <div className="flex items-center gap-3">
-                  <Download className="text-gray-400 group-hover:text-white" size={20} />
-                  <div>
-                    <p className="text-white font-medium">Export Data</p>
-                    <p className="text-xs text-gray-400">Download all your financial data as CSV/JSON</p>
-                  </div>
-                </div>
-              </button>
-
-              <div className="mt-8 pt-6 border-t border-white/10">
-                <button className="w-full py-3 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition text-sm font-medium">
-                  Delete Account
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Currency Preference */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-emerald-500/10"><Globe size={20} className="text-emerald-400" /></div>
+          <h2 className="text-lg font-semibold text-white">Currency</h2>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">Display Currency</label>
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className="input w-full max-w-sm bg-black/20"
+          >
+            {currencyList.map((c) => (
+              <option key={c.code} value={c.code}>{c.symbol} {c.code} — {c.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-2">All amounts will be displayed in this currency. Conversion is automatic.</p>
+        </div>
       </div>
+
+      {/* Security - placeholder */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 rounded-xl bg-blue-500/10"><Shield size={20} className="text-blue-400" /></div>
+          <h2 className="text-lg font-semibold text-white">Security</h2>
+        </div>
+        <p className="text-sm text-gray-500">Authentication and password management will be available in a future update. Your data is stored locally on this device.</p>
+      </div>
+
+      {/* Data Management */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-xl bg-amber-500/10"><Download size={20} className="text-amber-400" /></div>
+          <h2 className="text-lg font-semibold text-white">Data Management</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+            <div>
+              <p className="text-sm font-medium text-white">Export Transactions</p>
+              <p className="text-xs text-gray-500">Download all your transactions as a CSV file</p>
+            </div>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-red-500/10">
+            <div>
+              <p className="text-sm font-medium text-red-400">Delete All Data</p>
+              <p className="text-xs text-gray-500">Permanently remove all accounts and transactions</p>
+            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-4 py-2 rounded-lg bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20 transition-colors text-sm font-medium"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-full bg-red-500/10"><AlertTriangle size={24} className="text-red-400" /></div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Delete All Data?</h3>
+                <p className="text-sm text-gray-400">This action cannot be undone.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-white/5 text-gray-300 hover:bg-white/10 transition-colors font-medium text-sm">Cancel</button>
+              <button onClick={handleDeleteAllData} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors font-medium text-sm flex items-center justify-center gap-2">
+                <Trash2 size={16} /> Delete Everything
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

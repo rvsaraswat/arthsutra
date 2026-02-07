@@ -1,159 +1,210 @@
 import { useState, useEffect } from 'react'
+import {
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Legend,
+} from 'recharts'
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { useCurrency } from '../contexts/CurrencyContext'
+
+interface CategoryData {
+  name: string
+  value: number
+  color: string
+}
+
+interface MonthlyTrend {
+  month: string
+  income: number
+  expenses: number
+}
+
+interface SummaryData {
+  total_income: number
+  total_expenses: number
+  net_cashflow: number
+  savings_rate: number
+  symbol: string
+}
 
 export default function Analytics() {
+  const [categoryData, setCategoryData] = useState<CategoryData[]>([])
+  const [monthlyTrend, setMonthlyTrend] = useState<MonthlyTrend[]>([])
+  const [summary, setSummary] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'spending' | 'income'>('overview')
+  const { currency, formatAmount } = useCurrency()
 
   useEffect(() => {
-    setTimeout(() => setLoading(false), 500)
-  }, [])
+    fetchAnalytics()
+  }, [currency])
 
-  const categoryData = [
-    { name: 'Food', value: 25000, color: '#ef4444' },
-    { name: 'Transport', value: 15000, color: '#f59e0b' },
-    { name: 'Shopping', value: 20000, color: '#10b981' },
-    { name: 'Bills', value: 18000, color: '#3b82f6' },
-    { name: 'Entertainment', value: 12000, color: '#8b5cf6' },
-  ]
+  const fetchAnalytics = async () => {
+    setLoading(true)
+    try {
+      const [summaryRes, cashflowRes, categoriesRes] = await Promise.all([
+        fetch(`/api/v1/analytics/summary?user_id=1&display_currency=${currency}`),
+        fetch(`/api/v1/analytics/cashflow?user_id=1&months=6&display_currency=${currency}`),
+        fetch(`/api/v1/analytics/categories?user_id=1&months=6&display_currency=${currency}`),
+      ])
 
-  const monthlyTrend = [
-    { month: 'Jan', income: 50000, expenses: 35000 },
-    { month: 'Feb', income: 52000, expenses: 38000 },
-    { month: 'Mar', income: 50000, expenses: 34000 },
-    { month: 'Apr', income: 54000, expenses: 36000 },
-  ]
+      if (summaryRes.ok) {
+        const data = await summaryRes.json()
+        setSummary(data)
+      }
+      if (cashflowRes.ok) {
+        const data = await cashflowRes.json()
+        setMonthlyTrend(data.trend || [])
+      }
+      if (categoriesRes.ok) {
+        const data = await categoriesRes.json()
+        setCategoryData(data.categories || [])
+      }
+    } catch (err) {
+      console.error('Failed to load analytics:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  if (loading) return null
+  const sym = summary?.symbol || '₹'
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent"></div>
+      </div>
+    )
+  }
+
+  const totalSpending = categoryData.reduce((s, c) => s + c.value, 0)
 
   return (
     <div className="h-full flex flex-col gap-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Analytics</h2>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Analytics</h1>
           <p className="text-gray-400 text-sm">Financial insights and trends</p>
         </div>
-        
-        <div className="flex bg-white/5 p-1 rounded-xl">
-          {['overview', 'spending', 'income'].map((tab) => (
+        <div className="flex gap-2">
+          {(['overview', 'spending', 'income'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all capitalize ${
-                activeTab === tab 
-                  ? 'bg-violet-600/20 text-violet-300 shadow-sm' 
-                  : 'text-gray-400 hover:text-white'
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                activeTab === tab ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
-              {tab}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
-        <div className="card p-4">
-          <div className="flex justify-between items-start">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-shrink-0">
+        <div className="card p-5">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Avg Income</p>
-              <h3 className="text-2xl font-bold text-white mt-1">₹52,333</h3>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Income</p>
+              <p className="text-2xl font-bold text-white mt-1">{formatAmount(summary?.total_income || 0, sym)}</p>
             </div>
-            <div className="p-2 bg-emerald-500/10 rounded-lg">
-              <TrendingUp className="text-emerald-400" size={18} />
-            </div>
-          </div>
-          <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
-            <span>+8%</span>
-            <span className="text-gray-500">vs last quarter</span>
+            <div className="p-3 rounded-xl bg-emerald-500/10"><TrendingUp size={20} className="text-emerald-400" /></div>
           </div>
         </div>
-
-        <div className="card p-4">
-          <div className="flex justify-between items-start">
+        <div className="card p-5">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Avg Expense</p>
-              <h3 className="text-2xl font-bold text-white mt-1">₹35,333</h3>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Expenses</p>
+              <p className="text-2xl font-bold text-white mt-1">{formatAmount(summary?.total_expenses || 0, sym)}</p>
             </div>
-            <div className="p-2 bg-rose-500/10 rounded-lg">
-              <TrendingDown className="text-rose-400" size={18} />
-            </div>
-          </div>
-          <div className="mt-2 text-xs text-rose-400 flex items-center gap-1">
-            <span>+5%</span>
-            <span className="text-gray-500">vs last quarter</span>
+            <div className="p-3 rounded-xl bg-rose-500/10"><TrendingDown size={20} className="text-rose-400" /></div>
           </div>
         </div>
-
-        <div className="card p-4">
-          <div className="flex justify-between items-start">
+        <div className="card p-5">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Savings Rate</p>
-              <h3 className="text-2xl font-bold text-white mt-1">32.5%</h3>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Savings Rate</p>
+              <p className={`text-2xl font-bold mt-1 ${(summary?.savings_rate || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {(summary?.savings_rate || 0).toFixed(1)}%
+              </p>
             </div>
-            <div className="p-2 bg-violet-500/10 rounded-lg">
-              <DollarSign className="text-violet-400" size={18} />
-            </div>
-          </div>
-          <div className="mt-2 text-xs text-violet-400 flex items-center gap-1">
-            <span>Target: 30%</span>
+            <div className="p-3 rounded-xl bg-violet-500/10"><DollarSign size={20} className="text-violet-400" /></div>
           </div>
         </div>
       </div>
 
+      {/* Charts */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
-        <div className="card p-5 flex flex-col h-full">
+        {/* Spending Distribution Pie Chart */}
+        <div className="card p-5 flex flex-col">
           <h3 className="text-sm font-semibold text-white mb-4">Spending Distribution</h3>
           <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="rgba(0,0,0,0)" />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {categoryData.slice(0, 4).map((cat) => (
-              <div key={cat.name} className="flex items-center gap-2 text-xs text-gray-300">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                <span className="flex-1">{cat.name}</span>
-                <span className="font-medium">₹{(cat.value/1000).toFixed(1)}k</span>
+            {categoryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="45%"
+                    outerRadius="75%"
+                    paddingAngle={3}
+                    dataKey="value"
+                    nameKey="name"
+                  >
+                    {categoryData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} stroke="transparent" />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px', fontSize: '12px' }}
+                    formatter={(value: number, name: string) => [
+                      `${formatAmount(value, sym)} (${totalSpending > 0 ? ((value / totalSpending) * 100).toFixed(1) : 0}%)`,
+                      name,
+                    ]}
+                  />
+                  <Legend
+                    layout="horizontal"
+                    verticalAlign="bottom"
+                    wrapperStyle={{ fontSize: '11px', color: '#aaa' }}
+                    formatter={(value: string, _entry: any) => {
+                      const item = categoryData.find((c) => c.name === value)
+                      return `${value}  ${item ? formatAmount(item.value, sym) : ''}`
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                No spending data yet
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        <div className="card p-5 flex flex-col h-full">
+        {/* Monthly Income vs Expenses Bar Chart */}
+        <div className="card p-5 flex flex-col">
           <h3 className="text-sm font-semibold text-white mb-4">Income vs Expenses</h3>
           <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyTrend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis dataKey="month" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
-                />
-                <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            {monthlyTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <XAxis dataKey="month" stroke="#444" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#444" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px', fontSize: '12px' }}
+                    formatter={(value: number) => formatAmount(value, sym)}
+                  />
+                  <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} name="Income" />
+                  <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} name="Expenses" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                No monthly data yet
+              </div>
+            )}
           </div>
         </div>
       </div>
