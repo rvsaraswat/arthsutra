@@ -24,7 +24,7 @@ class CashFlowAnalyzer:
         self,
         year: int,
         month: int,
-        session
+        session=None
     ) -> Dict:
         """Get cash-flow for a specific month."""
         start_date = datetime(year, month, 1)
@@ -53,7 +53,7 @@ class CashFlowAnalyzer:
     def get_yearly_cashflow(
         self,
         year: int,
-        session
+        session=None
     ) -> Dict:
         """Get cash-flow for a specific year."""
         start_date = datetime(year, 1, 1)
@@ -82,7 +82,7 @@ class CashFlowAnalyzer:
     def get_cashflow_trend(
         self,
         months: int = 12,
-        session
+        session=None
     ) -> List[Dict]:
         """Get cash-flow trend over time."""
         trend = []
@@ -125,7 +125,7 @@ class CashFlowAnalyzer:
         self,
         start_date: datetime,
         end_date: datetime,
-        session
+        session=None
     ) -> Dict:
         """Get expense breakdown by category."""
         transactions = session.query(Transaction).filter(
@@ -155,7 +155,7 @@ class CashFlowAnalyzer:
     def get_cashflow_summary(
         self,
         days: int = 30,
-        session
+        session=None
     ) -> Dict:
         """Get comprehensive cash-flow summary."""
         end_date = datetime.now()
@@ -195,7 +195,7 @@ class CashFlowAnalyzer:
         self,
         months: int = 6,
         threshold: float = 1.5,
-        session
+        session=None
     ) -> List[Dict]:
         """Detect expense spikes compared to average."""
         trend = self.get_cashflow_trend(months, session)
@@ -217,7 +217,7 @@ class CashFlowAnalyzer:
     def get_cashflow_forecast(
         self,
         months: int = 6,
-        session
+        session=None
     ) -> List[Dict]:
         """Simple cash-flow forecast based on historical averages."""
         trend = self.get_cashflow_trend(months, session)

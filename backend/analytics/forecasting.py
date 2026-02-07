@@ -146,7 +146,7 @@ class SavingsTrajectory:
         self,
         start_date: datetime,
         end_date: datetime,
-        session
+        session=None
     ) -> Dict:
         """
         Calculate monthly savings over a period.
@@ -180,7 +180,7 @@ class SavingsTrajectory:
         self,
         months: int = 12,
         monthly_savings: float = None,
-        session
+        session=None
     ) -> List[Dict]:
         """
         Forecast savings trajectory.
@@ -220,7 +220,7 @@ class SavingsTrajectory:
     def calculate_goal_progress(
         self,
         goal_id: int,
-        session
+        session=None
     ) -> Dict:
         """
         Calculate progress towards a financial goal.
@@ -389,7 +389,7 @@ class RetirementSimulator:
 def forecast_expenses(
     user_id: int,
     horizon_days: int = 30,
-    session
+    session=None
 ) -> Dict:
     """
     Get expense forecast for a user.
@@ -426,7 +426,7 @@ def forecast_expenses(
 def forecast_savings(
     user_id: int,
     horizon_days: int = 30,
-    session
+    session=None
 ) -> Dict:
     """
     Get savings forecast for a user.
