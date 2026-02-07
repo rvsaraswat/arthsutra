@@ -130,64 +130,79 @@ class IngestionProcessor:
             results: List[TransactionCreate] = []
             import math
 
-            for item in raw_txns:
-                amount = item['amount']
-                # Skip NaN amounts
-                if isinstance(amount, float) and (math.isnan(amount) or math.isinf(amount)):
+            for idx, item in enumerate(raw_txns):
+                try:
+                    amount = item['amount']
+                    # Skip NaN amounts
+                    if isinstance(amount, float) and (math.isnan(amount) or math.isinf(amount)):
+                        continue
+
+                    currency = item.get('currency', 'INR').upper()
+                    rate = 1.0
+                    amount_converted = amount
+
+                    # Convert to user's target currency
+                    if currency != target_currency.upper():
+                        try:
+                            amount_converted = currency_service.convert(
+                                amount, currency, target_currency,
+                                date=item.get('date', datetime.now())
+                            )
+                            rate = amount_converted / amount if amount != 0 else 1.0
+                        except Exception as e:
+                            print(f"[Processor] Conversion {currency} → {target_currency} failed: {e}")
+
+                    # Enrich transaction with ML-ready metadata
+                    enrichment = enrich_transaction(item.get('description', ''), item.get('raw_data'))
+
+                    # Build metadata_json with all extra fields from raw parsing
+                    extra_meta = {
+                        "parser_currency_detected": currency,
+                        "raw_reference": item.get('reference', ''),
+                    }
+                    if item.get('raw_data'):
+                        extra_meta["raw_data"] = item['raw_data'] if isinstance(item['raw_data'], str) else str(item['raw_data'])
+
+                    # Determine transaction type: use enrichment to detect transfers
+                    category_hint = enrichment.get('merchant_category', '')
+                    if category_hint in ('Own Account Transfer', 'CC Bill Payment'):
+                        txn_type = 'transfer'
+                    elif category_hint == 'Transfer':
+                        txn_type = 'transfer'
+                    elif amount_converted > 0:
+                        txn_type = 'income'
+                    else:
+                        txn_type = 'expense'
+
+                    txn = TransactionCreate(
+                        user_id=user_id,
+                        date=item['date'],
+                        description=item['description'],
+                        amount=round(amount_converted, 2),
+                        currency=target_currency.upper(),
+                        transaction_type=txn_type,
+                        reference=item.get('reference'),
+
+                        # Original currency data
+                        amount_original=round(amount, 2),
+                        currency_original=currency,
+                        exchange_rate=round(rate, 6),
+                        source="file",
+                        source_file=file.filename,
+                        raw_data=str(item.get('raw_data', {})),
+
+                        # Enriched metadata
+                        merchant_name=enrichment.get('merchant_name'),
+                        merchant_category=enrichment.get('merchant_category'),
+                        transaction_method=enrichment.get('transaction_method'),
+                        location=enrichment.get('location'),
+                        card_last_four=enrichment.get('card_last_four'),
+                        metadata_json=json.dumps(extra_meta),
+                    )
+                    results.append(txn)
+                except Exception as e:
+                    print(f"[Processor] Skipping txn #{idx}: {e} | raw={item}")
                     continue
-
-                currency = item.get('currency', 'INR').upper()
-                rate = 1.0
-                amount_converted = amount
-
-                # Convert to user's target currency
-                if currency != target_currency.upper():
-                    try:
-                        amount_converted = currency_service.convert(
-                            amount, currency, target_currency,
-                            date=item.get('date', datetime.now())
-                        )
-                        rate = amount_converted / amount if amount != 0 else 1.0
-                    except Exception as e:
-                        print(f"[Processor] Conversion {currency} → {target_currency} failed: {e}")
-
-                # Enrich transaction with ML-ready metadata
-                enrichment = enrich_transaction(item.get('description', ''), item.get('raw_data'))
-
-                # Build metadata_json with all extra fields from raw parsing
-                extra_meta = {
-                    "parser_currency_detected": currency,
-                    "raw_reference": item.get('reference', ''),
-                }
-                if item.get('raw_data'):
-                    extra_meta["raw_data"] = item['raw_data'] if isinstance(item['raw_data'], str) else str(item['raw_data'])
-
-                txn = TransactionCreate(
-                    user_id=user_id,
-                    date=item['date'],
-                    description=item['description'],
-                    amount=round(amount_converted, 2),
-                    currency=target_currency.upper(),
-                    transaction_type="income" if amount_converted > 0 else "expense",
-                    reference=item.get('reference'),
-
-                    # Original currency data
-                    amount_original=round(amount, 2),
-                    currency_original=currency,
-                    exchange_rate=round(rate, 6),
-                    source="file",
-                    source_file=file.filename,
-                    raw_data=str(item.get('raw_data', {})),
-
-                    # Enriched metadata
-                    merchant_name=enrichment.get('merchant_name'),
-                    merchant_category=enrichment.get('merchant_category'),
-                    transaction_method=enrichment.get('transaction_method'),
-                    location=enrichment.get('location'),
-                    card_last_four=enrichment.get('card_last_four'),
-                    metadata_json=json.dumps(extra_meta),
-                )
-                results.append(txn)
 
             # Build detection info dict
             detection_info = detection.to_dict()
@@ -196,7 +211,26 @@ class IngestionProcessor:
             return results, detection_info
 
         finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            # Clean up temp file — retry on Windows where file handles may linger
+            self._safe_remove(tmp_path)
+
+    @staticmethod
+    def _safe_remove(path: str, retries: int = 3, delay: float = 0.3):
+        """Remove a file with retries for Windows file-locking issues."""
+        import time
+        import gc
+        for attempt in range(retries):
+            try:
+                if os.path.exists(path):
+                    gc.collect()  # Help release any lingering file handles
+                    os.remove(path)
+                return
+            except PermissionError:
+                if attempt < retries - 1:
+                    time.sleep(delay)
+                else:
+                    print(f"[Processor] WARNING: Could not delete temp file {path} (file in use)")
+            except Exception:
+                return
 
 processor = IngestionProcessor()

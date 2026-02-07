@@ -562,6 +562,9 @@ class PDFParser:
             exc_type_name = type(e).__name__.lower()
             if "pdfminer" in exc_type_name or "encrypt" in exc_type_name:
                 is_password_error = True
+            # Empty error message from pdfminer often means encrypted PDF
+            if not str(e).strip() and 'pdfminer' in str(type(e).__module__).lower():
+                is_password_error = True
             # Check cause chain for PDFPasswordIncorrect
             cause = e.__cause__
             while cause:
@@ -580,7 +583,10 @@ class PDFParser:
 
             print(f"[PDFParser] Error: {e}")
             import traceback; traceback.print_exc()
-            raise ValueError(f"Failed to parse PDF: {e}") from e
+            error_msg = str(e).strip()
+            if not error_msg:
+                error_msg = f"Unknown PDF error ({type(e).__name__}). The file may be corrupted or password-protected."
+            raise ValueError(f"Failed to parse PDF: {error_msg}") from e
 
         # ─── Bank & Account Detection ───
         detection = bank_detector.detect(

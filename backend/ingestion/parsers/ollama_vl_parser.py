@@ -12,10 +12,12 @@ class OllamaVLParser:
         self.model_name = model_name
         self.base_url = base_url
         self.headers = {"Content-Type": "application/json"}
+        self._available: bool | None = None  # Cache availability check
 
     def _render_pages_to_base64(self, file_path: str, max_pages: int = 5) -> List[str]:
         """Convert first N pages of PDF to base64 encoded PNG images."""
         images_b64 = []
+        pdf = None
         try:
             pdf = pdfium.PdfDocument(file_path)
             n_pages = min(len(pdf), max_pages)
@@ -37,6 +39,13 @@ class OllamaVLParser:
         except Exception as e:
             print(f"[VL Parser] Error rendering PDF: {e}")
             return []
+        finally:
+            # Explicitly close the PDF to release the file handle (critical on Windows)
+            if pdf is not None:
+                try:
+                    pdf.close()
+                except Exception:
+                    pass
 
     def _clean_json_response(self, text: str) -> str:
         """Extract JSON from potential markdown code blocks."""
@@ -51,16 +60,27 @@ class OllamaVLParser:
             
         return text
 
+    def _is_ollama_available(self) -> bool:
+        """Quick check if Ollama is reachable. Cached after first check."""
+        if self._available is not None:
+            return self._available
+        try:
+            r = httpx.get(f"{self.base_url}/api/tags", timeout=3.0)
+            self._available = r.status_code == 200
+        except Exception:
+            self._available = False
+        if not self._available:
+            print("[VL Parser] Ollama not available, skipping VL extraction")
+        return self._available
+
     def parse(self, file_path: str, password: str = None) -> Tuple[List[Dict[str, Any]], BankDetectionResult]:
         """
         Parse PDF using Visual Language Model.
         Returns generic transaction list and bank detection info.
         """
-        # Unlock PDF if password provided (pypdfium2 handles encryption seamlessly if we open with password, 
-        # but pypdfium2 python binding might need different handling. 
-        # Actually pdfium handles standard security handler. 
-        # For simplicity, if we failed earlier in main parser due to password, we might fail here too.
-        # But let's assume raw file access.
+        # Quick check — skip VL entirely if Ollama isn't running
+        if not self._is_ollama_available():
+            return [], BankDetectionResult()
         
         images = self._render_pages_to_base64(file_path)
         if not images:

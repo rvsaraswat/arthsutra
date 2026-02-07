@@ -1,10 +1,13 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+import logging
 from models import get_session, User, Transaction, TransactionAudit, Account
 from schemas import TransactionCreate, TransactionOut
 from ingestion.processor import processor
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix=f"{settings.API_V1_PREFIX}/ingestion", tags=["ingestion"])
 
@@ -36,6 +39,7 @@ async def upload_file(
             pass
 
     try:
+        logger.info(f"Processing upload: {file.filename} (content_type={file.content_type})")
         transactions, detection_info = await processor.process_file(
             file, user_id, password=password, target_currency=display_currency
         )
@@ -52,13 +56,19 @@ async def upload_file(
                 return [sanitize(i) for i in obj]
             return obj
 
-        txn_dicts = [sanitize(t.dict()) for t in transactions]
+        txn_dicts = [sanitize(t.model_dump()) for t in transactions]
+        logger.info(f"Upload complete: {len(txn_dicts)} transactions extracted from {file.filename}")
         return {
             "transactions": txn_dicts,
             "detection": detection_info,
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        import traceback
+        logger.error(f"Upload failed for {file.filename}: {e}\n{traceback.format_exc()}")
+        detail = str(e)
+        if not detail or detail == "None":
+            detail = f"Failed to parse {file.filename}. The file may be corrupted, password-protected, or in an unsupported format."
+        raise HTTPException(status_code=400, detail=detail)
 
 
 @router.post("/confirm", response_model=List[TransactionOut])

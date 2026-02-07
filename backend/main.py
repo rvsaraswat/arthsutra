@@ -1,7 +1,7 @@
-"""
-Main FastAPI application for Arthsutra - AI Personal Finance Manager.
-"""
+"""Main FastAPI application for Arthsutra - AI Personal Finance Manager."""
+
 from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 import logging
 from datetime import datetime
 from typing import Optional
+import sqlite3
 
 from config import settings
 from ingestion.routes import router as ingestion_router
@@ -94,6 +95,11 @@ app.include_router(ingestion_router)
 app.include_router(accounting_router)
 
 
+def _quote_sqlite_ident(identifier: str) -> str:
+    # SQLite identifiers can be safely quoted with double-quotes.
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -115,6 +121,61 @@ async def api_status():
         "version": settings.APP_VERSION,
         "database": "connected",
         "ai_model": settings.OLLAMA_MODEL
+    }
+
+
+@app.post(f"{settings.API_V1_PREFIX}/admin/wipe")
+async def wipe_all_data(payload: dict = Body(default_factory=dict)):
+    """Wipe all data from all non-system tables.
+
+    Local-first convenience endpoint for resetting the app before re-upload.
+    Requires an explicit confirm flag to prevent accidental calls.
+    """
+
+    if not payload.get("confirm"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing confirm flag. Send JSON body: {\"confirm\": true}",
+        )
+
+    db_path = settings.DATABASE_PATH
+    deleted_rows_by_table: dict[str, int] = {}
+
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute("PRAGMA foreign_keys=OFF;")
+            table_rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+            ).fetchall()
+            tables = [r[0] for r in table_rows]
+
+            for table_name in tables:
+                quoted = _quote_sqlite_ident(table_name)
+                before = conn.execute(f"SELECT COUNT(*) FROM {quoted}").fetchone()[0]
+                conn.execute(f"DELETE FROM {quoted}")
+                deleted_rows_by_table[table_name] = int(before)
+
+            conn.commit()
+
+            # Reclaim space; safe after commit.
+            conn.execute("VACUUM;")
+        finally:
+            conn.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error wiping database: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to wipe database: {str(e)}",
+        )
+
+    return {
+        "status": "ok",
+        "database": db_path,
+        "tables": len(deleted_rows_by_table),
+        "deleted_rows": deleted_rows_by_table,
     }
 
 

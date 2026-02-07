@@ -123,7 +123,15 @@ const Import = () => {
         setError('No transactions could be extracted from this file.');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Failed to parse file.';
+      let msg: string;
+      if (err.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+        msg = 'Cannot connect to backend server. Please ensure the backend is running on port 8000.';
+      } else {
+        msg = err.message || 'Failed to parse file. Please check the file format and try again.';
+      }
+      console.error('Upload error:', err);
       setError(msg);
     } finally {
       setLoading(false);

@@ -101,8 +101,12 @@ _CATEGORY_HINTS = [
     (r'\b(MUTUAL\s*FUND|SIP|STOCK|SHARE|ZERODHA|GROWW|DEMAT|TRADING|INVESTMENT|DIVIDEND|INTEREST)\b', 'Investment'),
     # Salary / Income
     (r'\b(SALARY|PAYROLL|WAGE|STIPEND|FREELANCE|CONSULTING\s*FEE|BONUS)\b', 'Salary'),
+    # Own Account Transfer (must be BEFORE generic Transfer to take priority)
+    (r'(?:OWN\s*ACCOUNT|SELF)\s*TR\s*ANSFER|TR\s*ANSFER\s*(?:FROM|TO)\s*OWN\s*ACCOUNT|FROM\s*OWN\s*ACCOUNT|TO\s*OWN\s*ACCOUNT|TRANSFER\s*FROM\s*OWN|TRANSFER\s*TO\s*OWN|SELF\s*TRANSFER|ACCOUNT\s*TRANSFER\s*(?:FROM|TO)\s*(?:SAVING|CURRENT|OWN)', 'Own Account Transfer'),
+    # Credit Card Bill Payment
+    (r'CARD\s*BILL\s*PAYMENT|BILL\s*CA\s*RD.*PAID|CC\s*BILL\s*PAY|CREDIT\s*CARD\s*PAYMENT|CARD\s*PAYMENT.*BANKDIRECT|CC\s*PAYMENT|BILL\s*PAYMENT.*CARD|CARD.*BILL.*PAID|PAID\s*USING\s*BANKDIRECT', 'CC Bill Payment'),
     # Transfer
-    (r'\b(TRANSFER|TRF|FUND\s*TRANSFER|SELF\s*TRANSFER)\b', 'Transfer'),
+    (r'\b(TRANSFER|TRF|FUND\s*TRANSFER)\b', 'Transfer'),
     # ATM
     (r'\b(ATM|CASH\s*WITHDRAWAL)\b', 'Cash'),
     # Government / Tax

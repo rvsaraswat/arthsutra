@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  Plus, Search, Calendar, ArrowUpRight, ArrowDownRight,
+  Plus, Search, Calendar, ArrowUpRight, ArrowDownRight, ArrowLeftRight,
   CreditCard, MapPin, Pencil, Trash2, RotateCcw, X, History, Archive,
   Check, AlertTriangle
 } from 'lucide-react'
@@ -13,7 +13,7 @@ interface Transaction {
   description: string
   amount: number
   date: string
-  type: 'income' | 'expense'
+  type: 'income' | 'expense' | 'transfer'
   category: string
   merchant_name?: string
   merchant_category?: string
@@ -44,7 +44,7 @@ interface AuditEntry {
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
+  const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all')
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'active' | 'trash'>('active')
   const { currency, formatAmount, symbol: globalSymbol } = useCurrency()
@@ -52,7 +52,7 @@ export default function Transactions() {
   // Add new transaction
   const [showAddModal, setShowAddModal] = useState(false)
   const [addForm, setAddForm] = useState({
-    description: '', amount: 0, transaction_type: 'expense' as 'income' | 'expense',
+    description: '', amount: 0, transaction_type: 'expense' as 'income' | 'expense' | 'transfer',
     date: new Date().toISOString().split('T')[0], merchant_name: '', notes: ''
   })
 
@@ -251,7 +251,7 @@ export default function Transactions() {
             />
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            {['all', 'income', 'expense'].map((f) => (
+            {['all', 'income', 'expense', 'transfer'].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f as any)}
@@ -302,9 +302,9 @@ export default function Transactions() {
                     <td className="pl-6 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg flex-shrink-0 ${
-                          tx.type === 'income' ? 'bg-emerald-500/10' : 'bg-rose-500/10'
+                          tx.type === 'income' ? 'bg-emerald-500/10' : tx.type === 'transfer' ? 'bg-blue-500/10' : 'bg-rose-500/10'
                         }`}>
-                          {tx.type === 'income' ? <ArrowUpRight size={16} className="text-emerald-400" /> : <ArrowDownRight size={16} className="text-rose-400" />}
+                          {tx.type === 'income' ? <ArrowUpRight size={16} className="text-emerald-400" /> : tx.type === 'transfer' ? <ArrowLeftRight size={16} className="text-blue-400" /> : <ArrowDownRight size={16} className="text-rose-400" />}
                         </div>
                         <div className="min-w-0">
                           <p className="text-white font-medium text-sm truncate">{tx.merchant_name || tx.description}</p>
@@ -349,9 +349,9 @@ export default function Transactions() {
                     </td>
                     <td className="text-right py-3.5 pr-2">
                       <span className={`font-bold text-sm ${
-                        tx.type === 'income' ? 'text-emerald-400' : 'text-white'
+                        tx.type === 'income' ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-blue-400' : 'text-white'
                       }`}>
-                        {tx.type === 'income' ? '+' : '-'}{formatAmount(Math.abs(tx.amount), tx.symbol || globalSymbol)}
+                        {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '' : '-'}{formatAmount(Math.abs(tx.amount), tx.symbol || globalSymbol)}
                       </span>
                     </td>
                     <td className="text-center pr-4 py-3.5">

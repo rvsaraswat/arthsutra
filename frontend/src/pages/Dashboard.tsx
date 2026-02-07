@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowUpRight, ArrowDownRight, Plus, TrendingUp, Percent } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, ArrowLeftRight, Plus, TrendingUp, Percent } from 'lucide-react'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useNavigate } from 'react-router-dom'
 import { useCurrency } from '../contexts/CurrencyContext'
@@ -9,7 +9,7 @@ interface Transaction {
   description: string
   amount: number
   date: string
-  type: 'income' | 'expense'
+  type: 'income' | 'expense' | 'transfer'
   category: string
   merchant_name?: string
   account?: string
@@ -200,8 +200,8 @@ export default function Dashboard() {
                     onClick={() => navigate('/transactions')}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${tx.type === 'income' ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
-                        {tx.type === 'income' ? <ArrowUpRight size={16} className="text-emerald-400" /> : <ArrowDownRight size={16} className="text-rose-400" />}
+                      <div className={`p-2 rounded-lg ${tx.type === 'income' ? 'bg-emerald-500/10' : tx.type === 'transfer' ? 'bg-blue-500/10' : 'bg-rose-500/10'}`}>
+                        {tx.type === 'income' ? <ArrowUpRight size={16} className="text-emerald-400" /> : tx.type === 'transfer' ? <ArrowLeftRight size={16} className="text-blue-400" /> : <ArrowDownRight size={16} className="text-rose-400" />}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white truncate max-w-[140px]">{tx.merchant_name || tx.description}</p>
@@ -209,8 +209,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
-                        {tx.type === 'income' ? '+' : '-'}{formatAmount(Math.abs(tx.amount), tx.symbol || sym)}
+                      <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-blue-400' : 'text-white'}`}>
+                        {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '' : '-'}{formatAmount(Math.abs(tx.amount), tx.symbol || sym)}
                       </p>
                       <p className="text-[10px] text-gray-500">
                         {new Date(tx.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
@@ -228,7 +228,7 @@ export default function Dashboard() {
                             <span>Date:</span>
                             <span className="text-white">{new Date(tx.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                             <span>Type:</span>
-                            <span className={tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}>{tx.type}</span>
+                            <span className={tx.type === 'income' ? 'text-emerald-400' : tx.type === 'transfer' ? 'text-blue-400' : 'text-rose-400'}>{tx.type}</span>
                             {tx.account && <><span>Account:</span><span className="text-white">{tx.account}</span></>}
                             {tx.reference && <><span>Reference:</span><span className="text-white truncate">{tx.reference}</span></>}
                           </div>

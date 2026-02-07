@@ -48,9 +48,24 @@ export default function Settings() {
   }
 
   const handleDeleteAllData = async () => {
-    // This is a destructive operation — in production would call a backend endpoint
     setShowDeleteConfirm(false)
-    setToast({ message: 'Data deletion is not available in this version', type: 'error' })
+    try {
+      const res = await fetch('/api/v1/admin/wipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      })
+
+      if (!res.ok) {
+        // backend returns JSON errors but fall back to text
+        const msg = await res.text()
+        throw new Error(msg || 'Wipe failed')
+      }
+
+      setToast({ message: 'All data deleted. Ready to re-upload.', type: 'success' })
+    } catch (err) {
+      setToast({ message: 'Failed to delete data', type: 'error' })
+    }
   }
 
   return (
