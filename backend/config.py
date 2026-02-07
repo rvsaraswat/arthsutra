@@ -18,15 +18,15 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Database
-    DATABASE_PATH: str = str(Path(__file__).parent.parent / "data" / "finance.db")
+    DATABASE_PATH: str = str(Path(__file__).resolve().parent.parent / "data" / "finance_v2.db")
     DATABASE_ENCRYPTION_KEY: str = Field(
         default="change_this_to_a_secure_key_in_production",
         description="Encryption key for SQLCipher database"
     )
-
+    
     # API
     API_V1_PREFIX: str = "/api/v1"
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:5177", "http://localhost:5178", "http://localhost:5179", "http://localhost:5180", "http://localhost:5181"]
 
     # AI / LLM
     OLLAMA_BASE_URL: str = "http://localhost:11434"
@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "nomic-embed-text"
 
     # ML Models
-    CATEGORIZATION_MODEL_PATH: str = str(Path(__file__).parent / "models" / "categorization.pkl")
-    FORECASTING_MODEL_PATH: str = str(Path(__file__).parent / "models" / "forecasting.pkl")
+    CATEGORIZATION_MODEL_PATH: str = str(Path(__file__).resolve().parent / "models" / "categorization.pkl")
+    FORECASTING_MODEL_PATH: str = str(Path(__file__).resolve().parent / "models" / "forecasting.pkl")
 
     # Security
     SECRET_KEY: str = Field(
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
-    LOG_FILE: str = str(Path(__file__).parent / "logs" / "app.log")
+    LOG_FILE: str = str(Path(__file__).resolve().parent / "logs" / "app.log")
 
     class Config:
         env_file = ".env"

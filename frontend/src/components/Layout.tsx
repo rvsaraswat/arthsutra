@@ -1,9 +1,13 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Wallet, BarChart3, MessageSquare, Settings, Bell, Search, User } from 'lucide-react'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, Wallet, BarChart3, MessageSquare, Settings, Bell, Search, User, Upload, Building2, ChevronDown } from 'lucide-react'
+import { useCurrency } from '../contexts/CurrencyContext'
+import { useState, useRef, useEffect } from 'react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Transactions', href: '/transactions', icon: Wallet },
+  { name: 'Import', href: '/import', icon: Upload },
+  { name: 'Accounts', href: '/accounts', icon: Building2 },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'AI Assistant', href: '/chat', icon: MessageSquare },
   { name: 'Settings', href: '/settings', icon: Settings },
@@ -11,6 +15,30 @@ const navigation = [
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { currency, symbol, currencyList, setCurrency } = useCurrency()
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false)
+  const [currencySearch, setCurrencySearch] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowCurrencyDropdown(false)
+        setCurrencySearch('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredCurrencies = currencyList.filter(
+    (c) =>
+      c.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
+      c.name.toLowerCase().includes(currencySearch.toLowerCase())
+  )
 
   return (
     <div className="h-screen bg-[#0a0a0f] flex overflow-hidden">
@@ -63,8 +91,8 @@ export default function Layout() {
               <User size={20} className="text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">John Doe</p>
-              <p className="text-xs text-gray-500">Premium Member</p>
+              <p className="text-sm font-medium text-white">{localStorage.getItem('user_name') || 'User'}</p>
+              <p className="text-xs text-gray-500">Arthsutra</p>
             </div>
           </div>
         </div>
@@ -81,14 +109,67 @@ export default function Layout() {
                 <input
                   type="text"
                   placeholder="Search transactions, categories..."
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && globalSearch.trim()) { navigate('/transactions'); setGlobalSearch('') } }}
                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-white/8 transition-all"
                 />
               </div>
             </div>
             <div className="flex items-center gap-3 ml-6">
-              <button className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors relative">
+              {/* Currency Selector */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-sm"
+                >
+                  <span className="text-violet-400 font-bold text-base">{symbol}</span>
+                  <span className="text-gray-300 font-medium">{currency}</span>
+                  <ChevronDown size={14} className={`text-gray-500 transition-transform ${showCurrencyDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showCurrencyDropdown && (
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+                    <div className="p-3 border-b border-white/5">
+                      <input
+                        type="text"
+                        placeholder="Search currencies..."
+                        value={currencySearch}
+                        onChange={(e) => setCurrencySearch(e.target.value)}
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-64 overflow-y-auto scrollbar-thin">
+                      {filteredCurrencies.map((c) => (
+                        <button
+                          key={c.code}
+                          onClick={() => {
+                            setCurrency(c.code)
+                            setShowCurrencyDropdown(false)
+                            setCurrencySearch('')
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                            c.code === currency
+                              ? 'bg-violet-600/20 text-violet-300'
+                              : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <span className="w-8 text-center font-bold text-base">{c.symbol}</span>
+                          <span className="font-medium">{c.code}</span>
+                          <span className="text-gray-500 text-xs ml-auto truncate max-w-[120px]">{c.name}</span>
+                        </button>
+                      ))}
+                      {filteredCurrencies.length === 0 && (
+                        <div className="px-4 py-6 text-center text-gray-500 text-sm">No currencies found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button className="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors relative" title="Notifications">
                 <Bell size={20} className="text-gray-400" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-violet-500 rounded-full ring-2 ring-[#0a0a0f]"></span>
               </button>
             </div>
           </div>
