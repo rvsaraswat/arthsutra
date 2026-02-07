@@ -1737,3 +1737,6 @@
 2026-02-07 15:58:04,150 - analytics.forecasting - WARNING - Not enough data for forecasting
 2026-02-07 15:58:14,001 - main - INFO - User registered: testuser
 2026-02-07 15:58:14,004 - main - INFO - User logged in: testuser
+2026-02-07 16:02:28,192 - main - INFO - Shutting down application
+2026-02-07 16:02:30,082 - main - INFO - Starting Arthsutra - AI Personal Finance Manager v1.0.0
+2026-02-07 16:02:30,092 - main - INFO - Database tables created
