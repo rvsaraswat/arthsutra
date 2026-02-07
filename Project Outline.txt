@@ -1,0 +1,354 @@
+Below is a **comprehensive, engineering-grade blueprint** for building a **locally running, AI-driven Personal Finance Manager (PFM)**, designed so you can **execute it end-to-end using VS Code + GitHub Copilot** as your primary coding accelerator.
+
+This is written as if you are **building a real product**, not a demo.
+
+---
+
+# 1. What You Are Building (System Definition)
+
+A **local-first AI Personal Finance Manager** that:
+
+* Runs **100% on your machine** (no cloud dependency)
+* Ingests **bank statements, broker data, expenses, assets**
+* Performs **analysis, forecasting, optimization**
+* Provides **natural-language insights**
+* Learns your behavior over time
+* Respects **privacy and security by design**
+
+Think of it as:
+
+> **“A private, self-hosted AI CFO + analyst for an individual.”**
+
+---
+
+# 2. Core Capabilities (Functional Requirements)
+
+## A. Data Ingestion Layer
+
+**Inputs (local files or APIs):**
+
+* Bank statements (CSV / PDF)
+* Credit card statements
+* Brokerage trades (Zerodha, etc.)
+* Mutual funds / ETFs
+* Manual entries (cash expenses)
+* Fixed assets (property, gold, crypto)
+
+**Capabilities:**
+
+* Auto-detect file formats
+* Normalize transactions
+* De-duplicate records
+* Tag transactions intelligently
+
+---
+
+## B. Financial Intelligence Layer
+
+**What the AI must do:**
+
+* Expense categorization (ML-based)
+* Cash-flow analysis
+* Net-worth tracking
+* Budget deviation detection
+* Risk profiling
+* Portfolio volatility analysis
+* Goal tracking (retirement, education, etc.)
+
+---
+
+## C. Predictive & Optimization Layer
+
+* Expense forecasting (LSTM / Prophet)
+* Savings trajectory modeling
+* Portfolio rebalancing suggestions
+* Tax optimization scenarios
+* Stress testing (job loss, market crash)
+
+---
+
+## D. Conversational AI Interface
+
+Examples:
+
+* “Why did my expenses spike last month?”
+* “Can I afford a ₹30L car in 2 years?”
+* “Rebalance my portfolio to 15% volatility”
+* “Show me worst-case scenario for next 12 months”
+
+---
+
+## E. Local Privacy & Security
+
+* Encrypted local database
+* No outbound data sharing
+* Optional air-gapped mode
+* Explainable AI outputs
+
+---
+
+# 3. High-Level Architecture
+
+```
+┌───────────────────────────┐
+│        UI (Web/Desktop)   │
+│  React / Electron / Tauri │
+└─────────────┬─────────────┘
+              │
+┌─────────────▼─────────────┐
+│  AI Orchestration Layer   │
+│  (LangChain / Custom)     │
+└─────────────┬─────────────┘
+              │
+┌─────────────▼─────────────┐
+│ Financial Intelligence    │
+│ - Rules + ML Models       │
+└─────────────┬─────────────┘
+              │
+┌─────────────▼─────────────┐
+│  Data Layer (Encrypted)   │
+│ SQLite / DuckDB / Parquet │
+└───────────────────────────┘
+```
+
+---
+
+# 4. Tech Stack (Local-First, Copilot-Friendly)
+
+## Backend
+
+* **Python 3.11**
+* FastAPI (API layer)
+* Pydantic (schema enforcement)
+* SQLAlchemy
+
+## AI / ML
+
+* **Local LLM:**
+
+  * Llama 3.1 8B / Mistral 7B (via Ollama)
+* Embeddings: `nomic-embed-text`
+* ML Models:
+
+  * Scikit-learn
+  * XGBoost
+  * Prophet / Statsmodels
+* LangChain (optional, not mandatory)
+
+## Data
+
+* DuckDB (analytics)
+* SQLite (core storage)
+* Pandas / Polars
+
+## UI
+
+* React + Vite
+* Tailwind CSS
+* Chart.js / Recharts
+
+## Security
+
+* SQLCipher
+* Fernet / AES-256 encryption
+* Local secrets vault
+
+---
+
+# 5. Project Breakdown (Task-Level Execution Plan)
+
+## PHASE 0 — Foundation (Week 0)
+
+### Tasks
+
+* Setup repo structure
+* VS Code + Copilot configuration
+* Python virtual env
+* Pre-commit hooks
+
+### Copilot Usage
+
+* Ask Copilot to scaffold project layout
+* Generate boilerplate FastAPI app
+
+---
+
+## PHASE 1 — Data Ingestion Engine (Week 1)
+
+### Tasks
+
+1. CSV transaction parser
+2. PDF statement extractor
+3. Unified transaction schema
+4. Duplicate detection logic
+5. Manual entry UI
+
+### Key Files
+
+```
+/ingestion/
+  bank_csv.py
+  pdf_parser.py
+  normalizer.py
+```
+
+### Copilot Prompts
+
+> “Create a Python class to normalize bank transactions into a unified schema”
+
+---
+
+## PHASE 2 — Categorization Intelligence (Week 2)
+
+### Tasks
+
+* Rule-based categorization (fallback)
+* ML-based classifier
+* User override feedback loop
+* Category confidence scoring
+
+### Models
+
+* TF-IDF + Logistic Regression
+* Later upgrade to embeddings
+
+### Copilot Prompts
+
+> “Train a transaction category classifier using historical labeled data”
+
+---
+
+## PHASE 3 — Financial Analytics Core (Week 3)
+
+### Tasks
+
+* Monthly cash-flow engine
+* Net-worth engine
+* Budget tracking
+* Volatility computation
+* Drawdown analysis
+
+### Outputs
+
+* JSON-based financial snapshots
+
+---
+
+## PHASE 4 — Forecasting & Planning (Week 4)
+
+### Tasks
+
+* Expense forecasting
+* Savings trajectory
+* Retirement corpus simulator
+* What-if engine
+
+### Models
+
+* Prophet for expenses
+* Monte Carlo simulation for portfolios
+
+---
+
+## PHASE 5 — Local LLM Integration (Week 5)
+
+### Tasks
+
+* Ollama setup
+* Prompt templates
+* Tool calling
+* Financial explanation engine
+
+### Example Tools
+
+* `get_cashflow()`
+* `simulate_goal()`
+* `rebalance_portfolio()`
+
+---
+
+## PHASE 6 — Conversational Interface (Week 6)
+
+### Tasks
+
+* Chat UI
+* Context memory
+* Retrieval-augmented finance summaries
+* Explainability layer
+
+---
+
+## PHASE 7 — Security & Hardening (Week 7)
+
+### Tasks
+
+* Encrypted DB
+* Secure secrets
+* Audit logging
+* Backup & restore
+
+---
+
+## PHASE 8 — Desktop Packaging (Week 8)
+
+### Tasks
+
+* Electron/Tauri build
+* Auto-start service
+* Offline updates
+* Resource throttling
+
+---
+
+# 6. Copilot-First Development Strategy
+
+You should **not “ask Copilot to build everything”**.
+
+Instead:
+
+### Pattern
+
+1. You define **clear intent**
+2. Copilot writes **80% scaffolding**
+3. You refine **logic + validation**
+4. AI models plug in last
+
+### Best Prompt Style
+
+```
+You are a senior fintech backend engineer.
+Write production-grade code for:
+- Input:
+- Output:
+- Constraints:
+```
+
+---
+
+# 7. Hardware Requirements (Local)
+
+### Minimum
+
+* 16GB RAM
+* 8-core CPU
+* SSD
+
+### Recommended (You already have this)
+
+* 64GB RAM
+* RTX 4070 Ti
+* NVMe SSD
+
+→ You can run **LLM + forecasting + simulations simultaneously**
+
+---
+
+# 8. What This System Can Become (Future)
+
+* Fully autonomous budget enforcement
+* Automated trade execution
+* Tax filing assistant
+* Family finance view
+* Voice-driven interface
+* Compliance-grade audit trails
+
