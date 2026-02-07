@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+
+# Environment files
+.env
+
+# Logs
+logs/
+backend/logs/
+*.log
+
+# Local databases
+*.db
+
+# Vite/Node
+.vite/
+node_modules/
+dist/
+
+# Test/coverage
+coverage/
