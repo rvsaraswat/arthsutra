@@ -65,6 +65,9 @@ ACCOUNT_TYPES = [
     "PPF", "EPF", "NPS",
     "stocks", "mutual_funds", "bonds", "crypto",
     "wallet", "cash", "other",
+    # Accounting-specific types (double-entry)
+    "receivable",  # Friend/person owes me
+    "payable",     # I owe friend/person
 ]
 
 ACCOUNT_TYPE_GROUPS = {
@@ -74,6 +77,7 @@ ACCOUNT_TYPE_GROUPS = {
     "Retirement": ["PPF", "EPF", "NPS"],
     "Investments": ["stocks", "mutual_funds", "bonds", "crypto"],
     "Other": ["wallet", "cash", "other"],
+    "Loan Tracking": ["receivable", "payable"],
 }
 
 
@@ -94,12 +98,22 @@ class Account(Base):
     icon = Column(String(50), nullable=True)  # Optional icon identifier
     color = Column(String(7), nullable=True)  # Hex color for UI
     notes = Column(Text, nullable=True)
+
+    # ── Accounting fields (double-entry) ──
+    accounting_type = Column(
+        String(20), nullable=True,
+    )  # asset, liability, receivable, payable — auto-derived if null
+    counterparty = Column(String(200), nullable=True)  # For receivable/payable: who
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     user = relationship("User", back_populates="accounts")
-    transactions = relationship("Transaction", back_populates="account_rel")
+    transactions = relationship(
+        "Transaction", back_populates="account_rel",
+        foreign_keys="[Transaction.account_id]",
+    )
 
     __table_args__ = (
         Index("idx_user_account_type", "user_id", "account_type"),
@@ -141,11 +155,17 @@ class Transaction(Base):
     description = Column(String(200), nullable=False)
     amount = Column(Float, nullable=False)
     currency = Column(String(3), default="INR")
-    transaction_type = Column(String(20), nullable=False)  # "income" or "expense"
+    transaction_type = Column(String(20), nullable=False)  # income, expense, transfer
+    transaction_nature = Column(String(40), nullable=True)  # salary, purchase, internal_transfer, loan_given, etc.
     date = Column(DateTime, nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
     account = Column(String(50))  # Legacy / free-text account name
     reference = Column(String(100))  # Transaction reference/ID
+
+    # ── Double-entry accounting fields ──
+    from_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    to_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    counterparty = Column(String(200), nullable=True)  # For loans/reimbursements
     
     # Ingestion Metadata
     amount_original = Column(Float, nullable=True)  # Amount in original currency
@@ -179,12 +199,16 @@ class Transaction(Base):
     # Relationships
     user = relationship("User", back_populates="transactions")
     category = relationship("Category", back_populates="transactions")
-    account_rel = relationship("Account", back_populates="transactions")
+    account_rel = relationship("Account", back_populates="transactions", foreign_keys=[account_id])
+    from_account_rel = relationship("Account", foreign_keys=[from_account_id])
+    to_account_rel = relationship("Account", foreign_keys=[to_account_id])
+    ledger_entries = relationship("LedgerEntry", back_populates="transaction", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_user_date", "user_id", "date"),
         Index("idx_user_type", "user_id", "transaction_type"),
         Index("idx_category_date", "category_id", "date"),
+        Index("idx_user_nature", "user_id", "transaction_nature"),
     )
 
 
@@ -211,6 +235,32 @@ class TransactionAudit(Base):
     __table_args__ = (
         Index("idx_audit_transaction", "transaction_id"),
         Index("idx_audit_user_time", "user_id", "timestamp"),
+    )
+
+
+class LedgerEntry(Base):
+    """Double-entry ledger.  Every transaction produces exactly two entries
+    whose total debits == total credits."""
+
+    __tablename__ = "ledger_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False)
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    # account_id=0 is a virtual account (Income/Expense equity bucket)
+    debit = Column(Float, default=0.0)
+    credit = Column(Float, default=0.0)
+    entry_date = Column(DateTime, nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    transaction = relationship("Transaction", back_populates="ledger_entries")
+
+    __table_args__ = (
+        Index("idx_ledger_txn", "transaction_id"),
+        Index("idx_ledger_account", "account_id"),
+        Index("idx_ledger_date", "entry_date"),
     )
 
 

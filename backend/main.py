@@ -13,8 +13,9 @@ from typing import Optional
 
 from config import settings
 from ingestion.routes import router as ingestion_router
+from accounting.routes import router as accounting_router
 from models import create_tables, get_session
-from models import User, Transaction, Category, Budget, Goal, Asset, AuditLog, FinancialSnapshot, Account, ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, TransactionAudit
+from models import User, Transaction, Category, Budget, Goal, Asset, AuditLog, FinancialSnapshot, Account, LedgerEntry, ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, TransactionAudit
 from services.currency import currency_service
 from analytics.forecasting import forecast_expenses as forecast_expenses_fn
 from analytics.forecasting import forecast_savings as forecast_savings_fn
@@ -90,6 +91,7 @@ app.add_middleware(
 )
 
 app.include_router(ingestion_router)
+app.include_router(accounting_router)
 
 
 # Health check endpoint
@@ -459,6 +461,50 @@ async def delete_account(
     acct.is_active = False
     session.commit()
     return {"message": f"Account '{acct.name}' deactivated", "id": acct.id}
+
+
+# ─── Re-categorize existing transactions (fix own-account transfers & CC bill payments) ───
+@app.post(f"{settings.API_V1_PREFIX}/transactions/recategorize")
+async def recategorize_transactions(user_id: int = 1):
+    """
+    Re-run enrichment on all transactions and fix transaction_type for own-account
+    transfers and CC bill payments that were incorrectly marked as income.
+    """
+    import re
+    from ingestion.enrichment import enrich_transaction
+
+    session = get_session()
+    try:
+        txns = session.query(Transaction).filter(
+            Transaction.user_id == user_id,
+            Transaction.is_deleted == False,
+        ).all()
+
+        updated = 0
+        for txn in txns:
+            enrichment = enrich_transaction(txn.description or '', None)
+            category_hint = enrichment.get('merchant_category', '')
+
+            new_type = None
+            if category_hint in ('Own Account Transfer', 'CC Bill Payment', 'Transfer'):
+                new_type = 'transfer'
+
+            if new_type and txn.transaction_type != new_type:
+                old_type = txn.transaction_type
+                txn.transaction_type = new_type
+                # Update merchant_category if enrichment found one
+                if category_hint and not txn.merchant_category:
+                    txn.merchant_category = category_hint
+                updated += 1
+                logger.info(f"Recategorized txn#{txn.id} '{txn.description[:50]}' from {old_type} -> {new_type}")
+
+        session.commit()
+        return {"message": f"Recategorized {updated} transactions out of {len(txns)} total", "updated": updated}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
 
 
 # Transaction endpoints

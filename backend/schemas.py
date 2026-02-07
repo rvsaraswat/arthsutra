@@ -1,15 +1,57 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List
+from enum import Enum
+
+
+# ─── Accounting Enums (for schema validation) ─────────────────────────────
+
+class TransactionTypeEnum(str, Enum):
+    INCOME = "income"
+    EXPENSE = "expense"
+    TRANSFER = "transfer"
+
+class TransactionNatureEnum(str, Enum):
+    SALARY = "salary"
+    BUSINESS_INCOME = "business_income"
+    INVESTMENT_INCOME = "investment_income"
+    GIFT_RECEIVED = "gift_received"
+    REFUND = "refund"
+    OTHER_INCOME = "other_income"
+    PURCHASE = "purchase"
+    SUBSCRIPTION = "subscription"
+    BILL_PAYMENT = "bill_payment"
+    REIMBURSEMENT_PAID = "reimbursement_paid"
+    GIFT_GIVEN = "gift_given"
+    OTHER_EXPENSE = "other_expense"
+    INTERNAL_TRANSFER = "internal_transfer"
+    CC_BILL_PAYMENT = "cc_bill_payment"
+    REIMBURSEMENT_RECEIVED = "reimbursement_received"
+    LOAN_GIVEN = "loan_given"
+    LOAN_RECEIVED = "loan_received"
+    LOAN_REPAID = "loan_repaid"
+    ADJUSTMENT = "adjustment"
+
+class AccountingTypeEnum(str, Enum):
+    ASSET = "asset"
+    LIABILITY = "liability"
+    RECEIVABLE = "receivable"
+    PAYABLE = "payable"
 
 class TransactionBase(BaseModel):
     description: str
     amount: float
     currency: str = "INR"
     transaction_type: str
+    transaction_nature: Optional[str] = None
     date: datetime
     account: Optional[str] = None
     reference: Optional[str] = None
+
+    # Double-entry accounting
+    from_account_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    counterparty: Optional[str] = None
     
     # Ingestion Metadata
     amount_original: Optional[float] = None
@@ -58,10 +100,14 @@ class TransactionUpdate(BaseModel):
     amount: Optional[float] = None
     currency: Optional[str] = None
     transaction_type: Optional[str] = None
+    transaction_nature: Optional[str] = None
     date: Optional[datetime] = None
     category_id: Optional[int] = None
     account_id: Optional[int] = None
     account: Optional[str] = None
+    from_account_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    counterparty: Optional[str] = None
     merchant_name: Optional[str] = None
     merchant_category: Optional[str] = None
     transaction_method: Optional[str] = None
@@ -185,7 +231,7 @@ class ChatResponse(BaseModel):
 
 class AccountBase(BaseModel):
     name: str
-    account_type: str  # savings, current, NRO, NRE, FD, PPF, stocks, etc.
+    account_type: str  # savings, current, NRO, NRE, FD, PPF, stocks, receivable, payable, etc.
     institution: Optional[str] = None
     account_number_masked: Optional[str] = None
     currency: str = "INR"
@@ -194,6 +240,8 @@ class AccountBase(BaseModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     notes: Optional[str] = None
+    accounting_type: Optional[str] = None  # asset, liability, receivable, payable
+    counterparty: Optional[str] = None  # For receivable/payable accounts
 
 class AccountCreate(AccountBase):
     user_id: int
@@ -209,6 +257,8 @@ class AccountUpdate(BaseModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     notes: Optional[str] = None
+    accounting_type: Optional[str] = None
+    counterparty: Optional[str] = None
 
 class AccountOut(AccountBase):
     id: int
@@ -218,3 +268,96 @@ class AccountOut(AccountBase):
 
     class Config:
         from_attributes = True
+
+
+# ─── Accounting / Ledger schemas ───
+
+class LedgerEntryOut(BaseModel):
+    id: int
+    transaction_id: int
+    account_id: Optional[int] = None
+    debit: float
+    credit: float
+    entry_date: datetime
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AccountingTransactionCreate(BaseModel):
+    """Full accounting-aware transaction creation."""
+    user_id: int
+    description: str
+    amount: float
+    currency: str = "INR"
+    date: datetime
+    transaction_type: TransactionTypeEnum
+    transaction_nature: TransactionNatureEnum
+    from_account_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    category: Optional[str] = None
+    category_id: Optional[int] = None
+    counterparty: Optional[str] = None
+    notes: Optional[str] = None
+    tags: Optional[str] = None
+    reference: Optional[str] = None
+
+
+class ValidationRequest(BaseModel):
+    """For pre-submit validation from frontend."""
+    transaction_type: str
+    transaction_nature: str
+    amount: float
+    currency: str = "INR"
+    from_account_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    from_account_type: Optional[str] = None
+    to_account_type: Optional[str] = None
+    category: Optional[str] = None
+    counterparty: Optional[str] = None
+
+
+class ValidationResponse(BaseModel):
+    valid: bool
+    errors: List[str] = []
+
+
+class ClassificationRequest(BaseModel):
+    description: str
+    amount: float = 0.0
+    from_account_type: Optional[str] = None
+    to_account_type: Optional[str] = None
+
+
+class ClassificationResponse(BaseModel):
+    transaction_type: str
+    transaction_nature: str
+    confidence: float
+    reasoning: str = ""
+
+
+class UXHintsResponse(BaseModel):
+    show_category: bool
+    require_counterparty: bool
+    require_both_accounts: bool
+    affects_net_worth: bool
+
+
+class BalanceSheetResponse(BaseModel):
+    as_of: str
+    assets: List[dict]
+    liabilities: List[dict]
+    receivables: List[dict]
+    payables: List[dict]
+    total_assets: float
+    total_liabilities: float
+    net_worth: float
+
+
+class OutstandingLoansResponse(BaseModel):
+    loans_given: List[dict]
+    loans_received: List[dict]
+    total_receivable: float
+    total_payable: float
+    net_loan_position: float
