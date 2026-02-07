@@ -10,6 +10,12 @@ from ingestion.bank_detector import bank_detector, BankDetectionResult
 class PDFParser:
     """Universal PDF statement parser supporting Indian banks, AMEX, and international formats."""
 
+    # Maximum number of digits allowed in a transaction amount (to filter out reference numbers)
+    MAX_TRANSACTION_DIGITS = 12  # No personal transaction exceeds 999,999,999,999
+    
+    # Maximum transaction amount to accept (prevents parsing errors and reference numbers)
+    MAX_TRANSACTION_AMOUNT = 10_000_000  # 10 million
+
     # All date formats we try, ordered from most specific to least
     DATE_FORMATS = [
         '%d/%m/%Y',     # 07/01/2025 (Indian)
@@ -111,7 +117,7 @@ class PDFParser:
 
         # Sanity: reject if the numeric part has too many digits (reference numbers leaking in)
         digits_only = re.sub(r'[^0-9]', '', cleaned)
-        if len(digits_only) > 12:  # No personal transaction > 999,999,999,999
+        if len(digits_only) > self.MAX_TRANSACTION_DIGITS:
             return None
 
         try:
@@ -119,8 +125,8 @@ class PDFParser:
         except ValueError:
             return None
 
-        # Sanity check: reject absurd amounts (> 10 million)
-        if abs(amount) > 10_000_000:
+        # Sanity check: reject absurd amounts
+        if abs(amount) > self.MAX_TRANSACTION_AMOUNT:
             return None
 
         if is_negative:

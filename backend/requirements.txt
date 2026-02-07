@@ -6,7 +6,7 @@ pydantic-settings==2.1.0
 
 # Database
 sqlalchemy==2.0.23
-# sqlcipher3==0.4.0
+# sqlcipher3==0.4.0  # Disabled: Using standard SQLite for local-first approach. Enable for production encryption.
 alembic==1.12.1
 
 # Data Processing
