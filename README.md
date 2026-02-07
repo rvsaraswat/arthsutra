@@ -38,9 +38,9 @@ Arthsutra is a modern, professional-grade personal finance management applicatio
 *Deep dive into spending habits and income trends.*
 ![Analytics](docs/images/analytics.png)
 
-### 3. Transaction Management
-*Filter and search through your complete financial history.*
-![Transactions](docs/images/transactions.png)
+### 3. AI Financial Assistant
+*Chat with your AI advisor to analyze spending and get financial advice.*
+![AI Assistant](docs/images/ai%20assistant.png)
 
 ### 4. Settings & Preferences
 *Manage your profile and application preferences.*
