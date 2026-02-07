@@ -1730,3 +1730,10 @@
 2026-02-07 15:56:59,030 - main - INFO - Starting Arthsutra - AI Personal Finance Manager v1.0.0
 2026-02-07 15:56:59,088 - main - INFO - Database tables created
 2026-02-07 15:57:07,610 - main - INFO - Shutting down application
+2026-02-07 15:57:25,810 - main - INFO - Starting Arthsutra - AI Personal Finance Manager v1.0.0
+2026-02-07 15:57:25,820 - main - INFO - Database tables created
+2026-02-07 15:57:51,278 - main - INFO - Starting Arthsutra - AI Personal Finance Manager v1.0.0
+2026-02-07 15:57:51,288 - main - INFO - Database tables created
+2026-02-07 15:58:04,150 - analytics.forecasting - WARNING - Not enough data for forecasting
+2026-02-07 15:58:14,001 - main - INFO - User registered: testuser
+2026-02-07 15:58:14,004 - main - INFO - User logged in: testuser

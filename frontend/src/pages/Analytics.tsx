@@ -168,7 +168,7 @@ export default function Analytics() {
                     layout="horizontal"
                     verticalAlign="bottom"
                     wrapperStyle={{ fontSize: '11px', color: '#aaa' }}
-                    formatter={(value: string, entry: any) => {
+                    formatter={(value: string, _entry: any) => {
                       const item = categoryData.find((c) => c.name === value)
                       return `${value}  ${item ? formatAmount(item.value, sym) : ''}`
                     }}
