@@ -7,13 +7,13 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 
-from ingestion.parsers.csv_parser import CSVParser
-from ingestion.parsers.pdf_parser import PDFParser
-from ingestion.parsers.ollama_vl_parser import OllamaVLParser
-from ingestion.enrichment import enrich_transaction
-from ingestion.bank_detector import BankDetectionResult
-from services.currency import currency_service
-from schemas import TransactionCreate
+from .parsers.csv_parser import CSVParser
+from .parsers.pdf_parser import PDFParser
+from .parsers.ollama_vl_parser import OllamaVLParser
+from .enrichment import enrich_transaction
+from .bank_detector import BankDetectionResult
+from ..services.currency import currency_service
+from ..schemas import TransactionCreate
 
 
 class IngestionProcessor:

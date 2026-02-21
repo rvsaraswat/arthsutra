@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import numpy as np
 
-from ingestion.bank_detector import bank_detector, BankDetectionResult
+from ..bank_detector import bank_detector, BankDetectionResult
 
 # Common variations of column names
 HEADER_MAPPINGS = {

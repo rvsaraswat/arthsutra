@@ -12,17 +12,17 @@ from datetime import datetime
 from typing import Optional
 import sqlite3
 
-from config import settings
-from ingestion.routes import router as ingestion_router
-from accounting.routes import router as accounting_router
-from models import create_tables, get_session
-from models import User, Transaction, Category, Budget, Goal, Asset, AuditLog, FinancialSnapshot, Account, LedgerEntry, ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, TransactionAudit
-from services.currency import currency_service
-from analytics.forecasting import forecast_expenses as forecast_expenses_fn
-from analytics.forecasting import forecast_savings as forecast_savings_fn
-from analytics.forecasting import RetirementSimulator
-from analytics.cashflow import CashFlowAnalyzer
-from schemas import (
+from .config import settings
+from .ingestion.routes import router as ingestion_router
+from .accounting.routes import router as accounting_router
+from .models import create_tables, get_session
+from .models import User, Transaction, Category, Budget, Goal, Asset, AuditLog, FinancialSnapshot, Account, LedgerEntry, ACCOUNT_TYPES, ACCOUNT_TYPE_GROUPS, TransactionAudit
+from .services.currency import currency_service
+from .analytics.forecasting import forecast_expenses as forecast_expenses_fn
+from .analytics.forecasting import forecast_savings as forecast_savings_fn
+from .analytics.forecasting import RetirementSimulator
+from .analytics.cashflow import CashFlowAnalyzer
+from .schemas import (
     TransactionCreate,
     TransactionOut,
     TransactionUpdate,
@@ -45,6 +45,11 @@ from schemas import (
 )
 
 # Configure logging
+from pathlib import Path
+
+# Ensure log directory exists (handle relative or env-overridden paths)
+Path(settings.LOG_FILE).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

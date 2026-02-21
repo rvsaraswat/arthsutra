@@ -13,13 +13,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from models import (
+from ..models import (
     Transaction,
     Account,
     LedgerEntry,
     get_session,
 )
-from schemas import (
+from ..schemas import (
     AccountingTransactionCreate,
     ClassificationRequest,
     ClassificationResponse,
@@ -32,22 +32,22 @@ from schemas import (
     TransactionNatureEnum,
     TransactionTypeEnum,
 )
-from accounting.enums import (
+from .enums import (
     AccountingType,
     TransactionNature,
     TransactionType,
     infer_accounting_type,
 )
-from accounting.validation import (
+from .validation import (
     TransactionInput,
     ValidationError,
     validate_transaction,
     validate_transaction_soft,
     get_ux_hints,
 )
-from accounting.ledger import LedgerEngine
-from accounting.reports import ReportingEngine
-from accounting.classifier import TransactionClassifier
+from .ledger import LedgerEngine
+from .reports import ReportingEngine
+from .classifier import TransactionClassifier
 
 logger = logging.getLogger(__name__)
 

@@ -61,7 +61,7 @@ class ReportingEngine:
                 },
             }
         """
-        from models import Transaction
+        from ..models import Transaction
 
         base = db.query(Transaction).filter(
             Transaction.user_id == user_id,
@@ -150,7 +150,7 @@ class ReportingEngine:
                 "expense_breakdown": [{"nature": ..., "category": ..., "total": ...}],
             }
         """
-        from models import Transaction
+        from ..models import Transaction
 
         rows = (
             db.query(Transaction)
@@ -230,7 +230,7 @@ class ReportingEngine:
                 "net_worth": float,
             }
         """
-        from models import Account, Transaction
+        from ..models import Account, Transaction
         from .enums import infer_accounting_type, AccountingType
 
         # Get all active accounts
@@ -315,7 +315,7 @@ class ReportingEngine:
                 "net_loan_position": float,  # positive = others owe me more
             }
         """
-        from models import Account
+        from ..models import Account
         from .enums import infer_accounting_type, AccountingType
 
         accounts = (
@@ -379,7 +379,7 @@ class ReportingEngine:
                 ]
             }
         """
-        from models import Transaction, Account
+        from ..models import Transaction, Account
         from .enums import infer_accounting_type, AccountingType
 
         end_date = datetime.utcnow()

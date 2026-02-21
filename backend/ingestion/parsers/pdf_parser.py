@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import re
 
-from ingestion.bank_detector import bank_detector, BankDetectionResult
+from ..bank_detector import bank_detector, BankDetectionResult
 
 
 class PDFParser:

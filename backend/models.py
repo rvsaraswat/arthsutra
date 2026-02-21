@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.pool import StaticPool
 # import sqlcipher3  # Commented out - using regular SQLite for now
 
-from config import settings
+from .config import settings
 
 Base = declarative_base()
 

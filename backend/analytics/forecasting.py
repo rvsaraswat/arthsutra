@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from prophet import Prophet
 
-from models import Transaction, get_session
+from ..models import Transaction, get_session
 
 logger = logging.getLogger(__name__)
 

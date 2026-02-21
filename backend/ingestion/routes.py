@@ -2,10 +2,10 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 import logging
-from models import get_session, User, Transaction, TransactionAudit, Account
-from schemas import TransactionCreate, TransactionOut
-from ingestion.processor import processor
-from config import settings
+from ..models import get_session, User, Transaction, TransactionAudit, Account
+from ..schemas import TransactionCreate, TransactionOut
+from .processor import processor
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 

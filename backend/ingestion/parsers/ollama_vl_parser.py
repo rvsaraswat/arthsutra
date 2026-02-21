@@ -5,7 +5,7 @@ import pypdfium2 as pdfium
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import re
-from ingestion.bank_detector import BankDetectionResult
+from ..bank_detector import BankDetectionResult
 
 class OllamaVLParser:
     def __init__(self, model_name: str = "qwen2.5-vl:7b", base_url: str = "http://localhost:11434"):

@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
-from models import Transaction, Category, get_session
+from ..models import Transaction, Category, get_session
 
 logger = logging.getLogger(__name__)
 

@@ -54,4 +54,18 @@ htmlcov/
 coverage/
 
 # Build artifacts
+
+# Data files
+*.xls
+*.xlsx
+*.xlk
 build/
+
+# Data files
+*.xlsx
+*.xlk
+*.xls
+*.xlsm
+*.xlsb
+*.xltx
+*.xltm

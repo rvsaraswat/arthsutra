@@ -8,7 +8,7 @@ from decimal import Decimal
 import logging
 import pandas as pd
 
-from models import Transaction, get_session
+from ..models import Transaction, get_session
 
 logger = logging.getLogger(__name__)
 
