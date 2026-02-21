@@ -1,0 +1,36 @@
+# docker-compose.yml – orchestrates backend, frontend and optional SQLite helper
+# -------------------------------------------------------------
+# Note: Adjust image names / tags as needed for CI/CD.
+# -------------------------------------------------------------
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: arthsutra-backend
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: arthsutra-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: nouchka/sqlite3
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
